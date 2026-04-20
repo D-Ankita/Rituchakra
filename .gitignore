@@ -56,3 +56,7 @@ mcp
 .env
 .env.local
 
+
+# Local terminal logs / transcripts
+logs.log
+*.log
