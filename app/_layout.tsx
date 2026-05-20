@@ -6,8 +6,11 @@ import 'react-native-reanimated';
 import { initializeDatabase } from '../src/db/database';
 import { useAppStore } from '../src/stores/useAppStore';
 import { useCycleStore } from '../src/stores/useCycleStore';
+import { useCompanionStore } from '../src/stores/useCompanionStore';
 import { getCurrentCycle, getCycleCount } from '../src/db/helpers/cycleHelpers';
 import { getCycleDay, calculatePhase } from '../src/engine/phaseCalculator';
+import { scheduleMorningBrief, minutesToHM } from '../src/companion/oracle/scheduler';
+import { requestNotificationPermissions } from '../src/utils/notifications';
 
 export { ErrorBoundary } from 'expo-router';
 
@@ -19,6 +22,8 @@ export default function RootLayout() {
   const setCurrentCycle = useCycleStore((s) => s.setCurrentCycle);
   const setCompletedCycleCount = useCycleStore((s) => s.setCompletedCycleCount);
   const cycleLength = useCycleStore((s) => s.cycleLength);
+  const proactiveMinutes = useCompanionStore((s) => s.proactiveMinutes);
+  const personaName = useCompanionStore((s) => s.personaName);
 
   useEffect(() => {
     initializeDatabase();
@@ -41,6 +46,20 @@ export default function RootLayout() {
       }
     })();
   }, [dbReady, hasCompletedOnboarding]);
+
+  useEffect(() => {
+    if (!dbReady || !hasCompletedOnboarding) return;
+    (async () => {
+      const granted = await requestNotificationPermissions();
+      if (!granted) return;
+      const { hour, minute } = minutesToHM(proactiveMinutes);
+      await scheduleMorningBrief({
+        hour,
+        minute,
+        body: `Tap to hear what ${personaName} has for you.`,
+      });
+    })();
+  }, [dbReady, hasCompletedOnboarding, proactiveMinutes, personaName]);
 
   if (!dbReady) return null;
 

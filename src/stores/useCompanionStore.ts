@@ -12,6 +12,7 @@ interface CompanionState {
   voiceEnabled: boolean;
   cloudOptIn: boolean;
   lastBriefAt: number | null;
+  lastScreeningCycleId: number | null;
 
   setPersonaName: (name: string) => void;
   setLanguage: (lang: CompanionLanguage) => void;
@@ -20,6 +21,7 @@ interface CompanionState {
   setVoiceEnabled: (enabled: boolean) => void;
   setCloudOptIn: (enabled: boolean) => void;
   setLastBriefAt: (ts: number) => void;
+  setLastScreeningCycleId: (id: number | null) => void;
   reset: () => void;
 }
 
@@ -31,6 +33,7 @@ const DEFAULTS = {
   voiceEnabled: false,
   cloudOptIn: false,
   lastBriefAt: null,
+  lastScreeningCycleId: null,
 };
 
 export const useCompanionStore = create<CompanionState>()(
@@ -45,6 +48,7 @@ export const useCompanionStore = create<CompanionState>()(
       setVoiceEnabled: (enabled) => set({ voiceEnabled: enabled }),
       setCloudOptIn: (enabled) => set({ cloudOptIn: enabled }),
       setLastBriefAt: (ts) => set({ lastBriefAt: ts }),
+      setLastScreeningCycleId: (id) => set({ lastScreeningCycleId: id }),
       reset: () => set(DEFAULTS),
     }),
     {

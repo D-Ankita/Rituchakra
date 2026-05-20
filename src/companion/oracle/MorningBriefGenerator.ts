@@ -6,11 +6,15 @@ import { buildLanguageProfile } from '../culture/languageProfile';
 import { setCachedBrief } from './briefCache';
 import { recordMemory } from '../dadi/Memory';
 import { LLMResponse } from '../cloud/CloudBoundary.types';
+import { shouldSurfaceScreening, ScreeningSurfaceState } from './rateLimit';
 
 export interface BriefOptions {
   packet: ContextPacket;
   cloudBoundary: CloudBoundary;
   persist?: boolean;
+  currentCycleId?: number | null;
+  screeningState?: ScreeningSurfaceState;
+  onScreeningSurfaced?: (cycleId: number) => void;
 }
 
 export interface GeneratedBrief {
@@ -18,10 +22,29 @@ export interface GeneratedBrief {
   isFallback: boolean;
   citations: string[];
   providerUsed: string;
+  screeningSurfaced: boolean;
 }
 
 export async function generateMorningBrief(opts: BriefOptions): Promise<GeneratedBrief> {
-  const { packet, cloudBoundary } = opts;
+  const { cloudBoundary } = opts;
+
+  let packet = opts.packet;
+  let screeningSurfaced = false;
+  if (packet.screening) {
+    const allow =
+      opts.screeningState && opts.currentCycleId !== undefined
+        ? shouldSurfaceScreening(opts.screeningState, opts.currentCycleId ?? null)
+        : true;
+    if (allow) {
+      screeningSurfaced = true;
+      if (opts.currentCycleId != null && opts.onScreeningSurfaced) {
+        opts.onScreeningSurfaced(opts.currentCycleId);
+      }
+    } else {
+      packet = { ...packet, screening: null };
+    }
+  }
+
   const persona = buildPersonaPrompt({
     personaName: packet.personaName,
     addressAs: packet.addressAs,
@@ -54,6 +77,7 @@ export async function generateMorningBrief(opts: BriefOptions): Promise<Generate
     isFallback: result.isFallback || result.providerUsed === 'offline-template',
     citations: result.citations,
     providerUsed: result.providerUsed,
+    screeningSurfaced,
   };
 
   if (opts.persist !== false) {

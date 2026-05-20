@@ -18,7 +18,8 @@ interface BoundaryDeps {
   tts: TTSProvider;
   stt: STTProvider;
   avatar: AvatarProvider;
-  optIn: () => boolean;
+  optIn: () => boolean;           // cloud LLM opt-in
+  voiceEnabled?: () => boolean;   // separate gate for on-device TTS/STT
   isDev: boolean;
 }
 
@@ -60,7 +61,8 @@ export class CloudBoundary {
   }
 
   async speak(text: string, voice: VoiceId): Promise<AudioStream> {
-    if (!this.deps.optIn()) return { uri: '', durationMs: 0 };
+    const enabled = this.deps.voiceEnabled?.() ?? this.deps.optIn();
+    if (!enabled) return { uri: '', durationMs: 0 };
     try {
       return await this.deps.tts.synthesize(text, voice);
     } catch {
@@ -69,7 +71,8 @@ export class CloudBoundary {
   }
 
   async listen(audio: AudioStream): Promise<string> {
-    if (!this.deps.optIn()) return '';
+    const enabled = this.deps.voiceEnabled?.() ?? this.deps.optIn();
+    if (!enabled) return '';
     try {
       return await this.deps.stt.transcribe(audio);
     } catch {

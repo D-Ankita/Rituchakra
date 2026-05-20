@@ -2,6 +2,7 @@ import { useState } from 'react';
 import {
   View,
   Text,
+  TextInput,
   StyleSheet,
   ScrollView,
   Switch,
@@ -40,6 +41,11 @@ export default function SettingsScreen() {
   const resetCycleStore = useCycleStore((s) => s.reset);
   const resetCompanionStore = useCompanionStore((s) => s.reset);
   const personaName = useCompanionStore((s) => s.personaName);
+  const setPersonaName = useCompanionStore((s) => s.setPersonaName);
+  const language = useCompanionStore((s) => s.language);
+  const setLanguage = useCompanionStore((s) => s.setLanguage);
+  const proactiveMinutes = useCompanionStore((s) => s.proactiveMinutes);
+  const setProactiveMinutes = useCompanionStore((s) => s.setProactiveMinutes);
   const cloudOptIn = useCompanionStore((s) => s.cloudOptIn);
   const setCloudOptIn = useCompanionStore((s) => s.setCloudOptIn);
   const voiceEnabled = useCompanionStore((s) => s.voiceEnabled);
@@ -278,6 +284,59 @@ export default function SettingsScreen() {
 
           <View style={styles.settingRow}>
             <View style={styles.settingInfo}>
+              <Text style={styles.settingLabel}>Call her</Text>
+              <Text style={styles.settingDescription}>
+                Dadi, Aaji, Nani, Didi — whatever feels right.
+              </Text>
+            </View>
+            <TextInput
+              style={styles.nameInput}
+              value={personaName}
+              onChangeText={setPersonaName}
+              maxLength={16}
+              placeholder="Dadi"
+              placeholderTextColor={colors.text.tertiary}
+            />
+          </View>
+
+          <View style={styles.settingColumn}>
+            <Text style={styles.settingLabel}>Language</Text>
+            <View style={styles.pillRow}>
+              {(['en', 'hi-en', 'mr-en', 'hi', 'mr'] as const).map((opt) => (
+                <TouchableOpacity
+                  key={opt}
+                  style={[styles.pill, language === opt && styles.pillActive]}
+                  onPress={() => setLanguage(opt)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.pillText, language === opt && styles.pillTextActive]}>
+                    {languageLabel(opt)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          <View style={styles.settingColumn}>
+            <Text style={styles.settingLabel}>Morning brief at</Text>
+            <View style={styles.pillRow}>
+              {[330, 360, 390, 420, 480].map((m) => (
+                <TouchableOpacity
+                  key={m}
+                  style={[styles.pill, proactiveMinutes === m && styles.pillActive]}
+                  onPress={() => setProactiveMinutes(m)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.pillText, proactiveMinutes === m && styles.pillTextActive]}>
+                    {minutesLabel(m)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          <View style={styles.settingRow}>
+            <View style={styles.settingInfo}>
               <Text style={styles.settingLabel}>Cloud features</Text>
               <Text style={styles.settingDescription}>
                 Let {personaName} use the cloud for fuller replies. Off by default.
@@ -295,13 +354,12 @@ export default function SettingsScreen() {
             <View style={styles.settingInfo}>
               <Text style={styles.settingLabel}>Voice</Text>
               <Text style={styles.settingDescription}>
-                Hear {personaName} speak (requires cloud features).
+                Hear {personaName} speak (uses on-device synthesis — no cloud).
               </Text>
             </View>
             <Switch
               value={voiceEnabled}
               onValueChange={setVoiceEnabled}
-              disabled={!cloudOptIn}
               trackColor={{ false: colors.divider, true: colors.phaseLight.menstrual }}
               thumbColor={voiceEnabled ? colors.phase.menstrual : colors.text.tertiary}
             />
@@ -413,6 +471,23 @@ export default function SettingsScreen() {
   );
 }
 
+function languageLabel(l: string): string {
+  switch (l) {
+    case 'en': return 'English';
+    case 'hi-en': return 'Hinglish';
+    case 'mr-en': return 'Marathi-Eng';
+    case 'hi': return 'हिन्दी';
+    case 'mr': return 'मराठी';
+    default: return l;
+  }
+}
+
+function minutesLabel(m: number): string {
+  const h = Math.floor(m / 60);
+  const mm = m % 60;
+  return `${h}:${mm.toString().padStart(2, '0')}`;
+}
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -454,6 +529,45 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: spacing.sm,
+  },
+  settingColumn: {
+    paddingVertical: spacing.sm,
+    gap: spacing.sm,
+  },
+  pillRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
+  pill: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  pillActive: {
+    backgroundColor: colors.phase.menstrual,
+    borderColor: colors.phase.menstrual,
+  },
+  pillText: {
+    ...typography.bodySmall,
+    color: colors.text.primary,
+  },
+  pillTextActive: {
+    color: colors.text.inverse,
+    fontWeight: '600',
+  },
+  nameInput: {
+    ...typography.body,
+    color: colors.text.primary,
+    minWidth: 120,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 6,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.surfaceAlt,
+    textAlign: 'right',
   },
   settingInfo: {
     flex: 1,

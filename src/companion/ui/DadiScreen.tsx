@@ -13,7 +13,7 @@ import Feather from '@expo/vector-icons/Feather';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
-import { AvatarFallback } from '../avatar/AvatarFallback';
+import { AvatarView } from '../avatar/AvatarView';
 import { BriefCard } from './BriefCard';
 import { TranscriptView, TranscriptTurn } from './TranscriptView';
 import { useCompanionStore } from '../../stores/useCompanionStore';
@@ -27,6 +27,8 @@ import { getCycleHistory } from '../../db/helpers/cycleHelpers';
 import { getAllLogs } from '../../db/helpers/dailyLogHelpers';
 import { DailyLogData } from '../../types/log';
 import { useRouter } from 'expo-router';
+import { useAmplitudePulse } from '../avatar/useAmplitudePulse';
+import { voiceIdForLanguage } from '../voice/voiceMapping';
 
 export function DadiScreen() {
   const router = useRouter();
@@ -35,7 +37,11 @@ export function DadiScreen() {
   const region = useCompanionStore((s) => s.region);
   const cloudOptIn = useCompanionStore((s) => s.cloudOptIn);
   const setCloudOptIn = useCompanionStore((s) => s.setCloudOptIn);
+  const voiceEnabled = useCompanionStore((s) => s.voiceEnabled);
+  const lastScreeningCycleId = useCompanionStore((s) => s.lastScreeningCycleId);
+  const setLastScreeningCycleId = useCompanionStore((s) => s.setLastScreeningCycleId);
 
+  const currentCycleId = useCycleStore((s) => s.currentCycleId);
   const cycleDay = useCycleStore((s) => s.currentCycleDay);
   const cycleLength = useCycleStore((s) => s.cycleLength);
   const phase = useCycleStore((s) => s.currentPhase);
@@ -46,26 +52,49 @@ export function DadiScreen() {
   const [turns, setTurns] = useState<TranscriptTurn[]>([]);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
+  const [speakingDurationMs, setSpeakingDurationMs] = useState(0);
+  const { amplitude, isSpeaking, start: startPulse, stop: stopPulse } =
+    useAmplitudePulse();
 
   const runtime = useMemo(
     () => bootstrapCompanion({ isDev: __DEV__ }),
-    []
+    // Re-bootstrap when voice toggle changes so the TTS provider swaps in/out.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [voiceEnabled]
   );
   const engineRef = useRef<ConversationEngine | null>(null);
+
+  const speakWithPulse = async (text: string) => {
+    if (!voiceEnabled || !text) return;
+    const estimateMs = Math.max(1500, text.split(/\s+/).length * 400);
+    setSpeakingDurationMs(estimateMs);
+    startPulse(estimateMs);
+    try {
+      await runtime.cloudBoundary.speak(text, voiceIdForLanguage(language));
+    } finally {
+      stopPulse();
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       const cached = await getCachedBrief();
       if (cached && !cancelled) {
-        setBrief({ text: cached.text, isFallback: cached.isFallback, citations: [], providerUsed: 'cache' });
+        setBrief({
+          text: cached.text,
+          isFallback: cached.isFallback,
+          citations: [],
+          providerUsed: 'cache',
+          screeningSurfaced: false,
+        });
         setBriefGeneratedAt(cached.generatedAt);
       }
 
       const cycles = await getCycleHistory(12);
       const logs = (await getAllLogs(60)) as DailyLogData[];
       const packet = await buildContextPacket({
-        cycleDay: cycleDay,
+        cycleDay,
         cycleLength,
         phase: phase ?? null,
         cycles,
@@ -74,7 +103,7 @@ export function DadiScreen() {
         language,
         personaName,
         addressAs: 'beta',
-        region: region,
+        region,
         today: new Date(),
         allowScreeningSurface: true,
       });
@@ -104,17 +133,25 @@ export function DadiScreen() {
         });
       }
 
-      const fresh = await generateMorningBrief({ packet, cloudBoundary: runtime.cloudBoundary });
+      const fresh = await generateMorningBrief({
+        packet,
+        cloudBoundary: runtime.cloudBoundary,
+        currentCycleId: currentCycleId ?? null,
+        screeningState: { lastSurfacedCycleId: lastScreeningCycleId },
+        onScreeningSurfaced: (id) => setLastScreeningCycleId(id),
+      });
       if (!cancelled) {
         setBrief(fresh);
         setBriefGeneratedAt(Date.now());
+        speakWithPulse(fresh.text);
       }
     })();
     return () => {
       cancelled = true;
+      stopPulse();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [voiceEnabled]);
 
   const onSend = async () => {
     const text = input.trim();
@@ -125,6 +162,7 @@ export function DadiScreen() {
     try {
       const reply = await engineRef.current.send(text);
       setTurns((prev) => [...prev, { role: 'assistant', text: reply.text }]);
+      speakWithPulse(reply.text);
     } finally {
       setSending(false);
     }
@@ -137,7 +175,11 @@ export function DadiScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <View style={styles.header}>
-          <AvatarFallback personaName={personaName} isSpeaking={sending} />
+          <AvatarView
+            personaName={personaName}
+            isSpeaking={isSpeaking || sending}
+            amplitude={amplitude}
+          />
           {!cloudOptIn ? (
             <TouchableOpacity
               style={styles.optInBanner}
@@ -146,7 +188,7 @@ export function DadiScreen() {
             >
               <Feather name="cloud" size={16} color={colors.text.primary} />
               <Text style={styles.optInText}>
-                Tap to let {personaName} speak fully — uses cloud, see Privacy.
+                Tap to let {personaName} speak more fully — uses cloud, see Privacy.
               </Text>
             </TouchableOpacity>
           ) : null}
@@ -157,7 +199,11 @@ export function DadiScreen() {
 
         {brief ? (
           <View style={{ paddingHorizontal: spacing.md }}>
-            <BriefCard text={brief.text} isFallback={brief.isFallback} generatedAt={briefGeneratedAt} />
+            <BriefCard
+              text={brief.text}
+              isFallback={brief.isFallback}
+              generatedAt={briefGeneratedAt}
+            />
           </View>
         ) : null}
 
