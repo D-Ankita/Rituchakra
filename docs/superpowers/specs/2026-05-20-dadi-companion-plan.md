@@ -1,7 +1,7 @@
 ---
 name: Dadi Companion — Implementation Plan (per spec §13)
 date: 2026-05-20
-status: AWAITING APPROVAL · do not start Milestone 1 until Ankita signs off
+status: DECIDED · open questions resolved 2026-05-20 · awaiting go-ahead for Milestone 1
 owner: Claude Code
 spec: 2026-05-20-dadi-companion-spec.md
 ---
@@ -245,21 +245,29 @@ The spec's hardest invariant: "never output a condition name as a conclusion." A
 
 The same `outputValidator` is reused by the Dadi `ConversationEngine` (Milestone 2) as a *second* defensive layer over LLM output — but the screener never depends on the LLM for safety.
 
-## F. Open questions for Ankita before Milestone 1
+## F. Decisions (resolved 2026-05-20 — Ankita delegated)
 
-These are intentionally small — yes/no on each unblocks Milestone 1 fully:
+1. **Wipe granularity — TWO actions.** Existing one-tap "Erase everything" stays. Add a separate "Clear Dadi's memory" action in Settings → Data that truncates `companion_memory` only and leaves cycle history intact. Rationale: memory is the differentiator, users will want to restart with Dadi without nuking months of cycle data. No third-tier "clear cycle data" surface (footgun, no real intent).
+2. **Companion settings store — new `useCompanionStore` (Zustand).** Follows the repo's established pattern (`useAppStore`, `useCycleStore`, `useLogStore` are all Zustand). Fields: `personaName, language, region, proactiveMinutes, voiceEnabled, cloudOptIn, lastBriefAt`. Persisted via the same AsyncStorage layer the other stores use. SQLite table rejected — would force a migration for every settings tweak while the feature is still finding its shape. Wipe routine adds one `.reset()` call.
+3. **Test runner — `jest-expo`.** Single runner for the whole repo. Vitest is faster on pure TS but doesn't have first-class RN support, and Milestone 3 brings RN component tests (AvatarView, DadiScreen) — so we'd inevitably need Jest anyway. Two runners is a permanent tax; one is simpler. Jest startup overhead on the small screening module is acceptable.
+4. **Module naming — keep spec names verbatim (`screening/`, `oracle/`, `dadi/`, `culture/`).** No Oracle DB or naming collisions exist in this repo. "Dadi" is the user-visible noun. Future devs read the spec and the code as one corpus. Rename is a cheap IDE refactor if we ever change our minds.
 
-1. **Memory wipe semantics.** The spec says companion data participates in the one-tap wipe. Should there also be a *separate* "clear my conversations only" action in settings, distinct from full app wipe? (My default: yes, but only proposing.)
-2. **`companion_settings` table vs. extending `useAppStore`.** Either works. AsyncStorage via `useAppStore` is simpler; SQLite is more consistent with the rest of the schema. (My default: extend `useAppStore` for Milestone 1, migrate to table only if it grows beyond ~10 fields.)
-3. **Test runner.** Repo has no Jest/Vitest configured today. Milestone 1 needs tests — I'd add **Vitest** (lighter, faster, no RN bridge needed for pure TS engine code). OK to add? (Alternative: Jest with a minimal RN preset.)
-4. **Naming.** "Brain" / "Oracle" / "Dadi" — the user-visible name is `Dadi`. Should the code-side modules use those exact names (`oracle/`, `dadi/`) as written above, or do you want a more neutral internal naming like `screening/`, `morningBrief/`, `companion/`? (My default: keep the spec's naming; it's more memorable and one-to-one with the spec.)
+### Concrete deltas to §B (directory layout) from these decisions
 
-## G. What I will NOT do until you approve
+- Replace any references to `companion_settings` table with `useCompanionStore` in `src/stores/useCompanionStore.ts`. Drop `companionSettings` from §C entirely.
+- Add `src/companion/wipe.ts` exporting `clearCompanionMemory()` (truncates `companion_memory`) and ensure the existing full-wipe routine calls it.
+- Add `jest-expo` + `@types/jest` to devDependencies; create `jest.config.js` at repo root with the Expo preset; add `npm test` script. Test files live next to source under `__tests__/`.
+- No other changes to the §B tree.
 
-- No new files in `src/engine/screening/` or `src/companion/`.
-- No schema change to `src/db/schema.ts`.
-- No new dependency in `package.json`.
-- No notification scheduling changes.
-- No commits beyond saving this plan + the spec to the docs folder.
+## G. Milestone 1 scope (ready to start on go-ahead)
 
-Awaiting your sign-off on §B–§E and answers to §F. Once approved, I'll start Milestone 1 (the Brain), which is local-only, fully testable, and has zero cloud cost.
+Single PR, all local, zero cloud:
+
+1. Add `jest-expo` + `@types/jest` + `jest.config.js` + `npm test`.
+2. Add `companion_memory` table to `src/db/schema.ts` + migration in `initializeDatabase`.
+3. Add `src/stores/useCompanionStore.ts` (Zustand) with the 7 fields from §F.2.
+4. Create `src/engine/screening/` with `stats.ts`, `ScreeningResult.ts`, `bannedPhrases.ts`, `outputValidator.ts`, `IrregularityScreener.ts` + `__tests__/`.
+5. Add `src/companion/wipe.ts` and wire it into the existing full-wipe routine + a new Settings → Data row "Clear Dadi's memory."
+6. Tests: screener correctness (synthetic histories), validator fail-closed, wipe truly empties `companion_memory`.
+
+What is NOT in Milestone 1: any cloud code, any LLM call, any companion UI beyond the wipe row, the Oracle, the persona prompt, the avatar.
