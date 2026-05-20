@@ -617,3 +617,9 @@ export const stats = {
 if (evalCases.length !== 50) {
   throw new Error(`Eval set drifted: expected 50 cases, found ${evalCases.length}`);
 }
+
+// Re-export Dadi companion cases so a single import drives both the
+// RAG-grounded AI Coach eval and the Dadi persona/code-switching/
+// memory eval.
+export { dadiCases, dadiEvalStats } from './dadi-cases';
+export type { DadiCase, DadiCategory } from './dadi-cases';

@@ -15,7 +15,11 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.rituchakra.app"
+      "bundleIdentifier": "com.rituchakra.app",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "Lets you speak to Dadi instead of typing.",
+        "NSSpeechRecognitionUsageDescription": "Lets Dadi understand what you say."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -24,7 +28,8 @@
       },
       "package": "com.rituchakra.app",
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": ["android.permission.RECORD_AUDIO"]
     },
     "web": {
       "bundler": "metro",
@@ -40,10 +45,25 @@
         {
           "color": "#C7556F"
         }
+      ],
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Lets you speak to Dadi instead of typing.",
+          "speechRecognitionPermission": "Lets Dadi understand what you say.",
+          "androidSpeechServicePackages": ["com.google.android.googlequicksearchbox"]
+        }
       ]
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "anthropicApiKey": null,
+      "elevenLabsApiKey": null,
+      "elevenLabsVoiceEn": null,
+      "elevenLabsVoiceHi": null,
+      "elevenLabsVoiceMr": null
     }
   }
 }

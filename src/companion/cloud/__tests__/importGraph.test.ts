@@ -15,9 +15,14 @@ const SDK_IMPORT_PATTERNS = [
   /from\s+['"]@anthropic-ai\/sdk['"]/,
   /from\s+['"]@google\/(genai|generative-ai)['"]/,
   /from\s+['"]elevenlabs['"]/,
+  /from\s+['"]@elevenlabs\//,
   /require\(['"]@anthropic-ai\/sdk['"]\)/,
   /require\(['"]@google\/(genai|generative-ai)['"]\)/,
   /require\(['"]elevenlabs['"]\)/,
+  /require\(['"]@elevenlabs\//,
+  // ElevenLabs REST API endpoint — anyone fetching this URL outside
+  // the providers/ dir is bypassing the boundary.
+  /api\.elevenlabs\.io/,
 ];
 
 const ROOT = path.resolve(__dirname, '..', '..', '..');

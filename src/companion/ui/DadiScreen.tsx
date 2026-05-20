@@ -7,9 +7,11 @@ import {
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Feather from '@expo/vector-icons/Feather';
+import Constants from 'expo-constants';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
@@ -18,7 +20,7 @@ import { BriefCard } from './BriefCard';
 import { TranscriptView, TranscriptTurn } from './TranscriptView';
 import { useCompanionStore } from '../../stores/useCompanionStore';
 import { useCycleStore } from '../../stores/useCycleStore';
-import { bootstrapCompanion } from '../bootstrap';
+import { bootstrapCompanion, CompanionRuntime } from '../bootstrap';
 import { ConversationEngine } from '../dadi/ConversationEngine';
 import { buildContextPacket } from '../context/ContextBuilder';
 import { generateMorningBrief, GeneratedBrief } from '../oracle/MorningBriefGenerator';
@@ -29,6 +31,12 @@ import { DailyLogData } from '../../types/log';
 import { useRouter } from 'expo-router';
 import { useAmplitudePulse } from '../avatar/useAmplitudePulse';
 import { voiceIdForLanguage } from '../voice/voiceMapping';
+import { ExpoSpeechTTSProvider } from '../cloud/providers/expoSpeechTTS';
+
+function readExtra(key: string): string | undefined {
+  const extra = (Constants.expoConfig?.extra ?? {}) as Record<string, string | undefined>;
+  return extra[key];
+}
 
 export function DadiScreen() {
   const router = useRouter();
@@ -52,25 +60,48 @@ export function DadiScreen() {
   const [turns, setTurns] = useState<TranscriptTurn[]>([]);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
-  const [speakingDurationMs, setSpeakingDurationMs] = useState(0);
-  const { amplitude, isSpeaking, start: startPulse, stop: stopPulse } =
+  const [listening, setListening] = useState(false);
+  const [interimText, setInterimText] = useState('');
+  const { amplitude, isSpeaking, start: startPulse, pulseWord, stop: stopPulse } =
     useAmplitudePulse();
 
-  const runtime = useMemo(
-    () => bootstrapCompanion({ isDev: __DEV__ }),
-    // Re-bootstrap when voice toggle changes so the TTS provider swaps in/out.
+  const runtime: CompanionRuntime = useMemo(
+    () =>
+      bootstrapCompanion({
+        anthropicApiKey: cloudOptIn ? readExtra('anthropicApiKey') : undefined,
+        elevenLabsApiKey: voiceEnabled ? readExtra('elevenLabsApiKey') : undefined,
+        elevenLabsVoicePresets: {
+          'en-IN': readExtra('elevenLabsVoiceEn'),
+          'hi-IN': readExtra('elevenLabsVoiceHi'),
+          'mr-IN': readExtra('elevenLabsVoiceMr'),
+        },
+        isDev: __DEV__,
+      }),
+    // Re-bootstrap when either toggle changes so the providers swap.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [voiceEnabled]
+    [voiceEnabled, cloudOptIn]
   );
+
   const engineRef = useRef<ConversationEngine | null>(null);
+  const stopListenRef = useRef<(() => void) | null>(null);
 
   const speakWithPulse = async (text: string) => {
     if (!voiceEnabled || !text) return;
     const estimateMs = Math.max(1500, text.split(/\s+/).length * 400);
-    setSpeakingDurationMs(estimateMs);
     startPulse(estimateMs);
     try {
-      await runtime.cloudBoundary.speak(text, voiceIdForLanguage(language));
+      // Word-boundary pulse only when expo-speech is the provider
+      // (it exposes onBoundary). ElevenLabs path plays through
+      // expo-audio and relies on the sinusoidal base.
+      if (runtime.ttsProvider instanceof ExpoSpeechTTSProvider) {
+        await runtime.ttsProvider.speakWithCallbacks(
+          text,
+          voiceIdForLanguage(language),
+          { onWord: () => pulseWord() }
+        );
+      } else {
+        await runtime.cloudBoundary.speak(text, voiceIdForLanguage(language));
+      }
     } finally {
       stopPulse();
     }
@@ -149,15 +180,16 @@ export function DadiScreen() {
     return () => {
       cancelled = true;
       stopPulse();
+      stopListenRef.current?.();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [voiceEnabled]);
+  }, [voiceEnabled, cloudOptIn]);
 
-  const onSend = async () => {
-    const text = input.trim();
-    if (!text || !engineRef.current) return;
+  const sendText = async (text: string) => {
+    if (!text.trim() || !engineRef.current) return;
     setSending(true);
     setInput('');
+    setInterimText('');
     setTurns((prev) => [...prev, { role: 'user', text }]);
     try {
       const reply = await engineRef.current.send(text);
@@ -165,6 +197,57 @@ export function DadiScreen() {
       speakWithPulse(reply.text);
     } finally {
       setSending(false);
+    }
+  };
+
+  const onSend = () => sendText(input.trim());
+
+  const onMicPress = async () => {
+    if (listening) {
+      stopListenRef.current?.();
+      stopListenRef.current = null;
+      setListening(false);
+      return;
+    }
+    if (!runtime.stt) {
+      Alert.alert(
+        'Voice off',
+        'Turn on Voice in Settings → ' + personaName + ' first.'
+      );
+      return;
+    }
+    const granted = await runtime.stt.requestPermissions();
+    if (!granted) {
+      Alert.alert(
+        'Microphone access needed',
+        'Allow microphone access to talk to ' + personaName + '.'
+      );
+      return;
+    }
+
+    setListening(true);
+    setInterimText('');
+    try {
+      const stopFn = await runtime.stt.startListening({
+        language: voiceIdForLanguage(language),
+        onPartial: (text) => setInterimText(text),
+        onFinal: (text) => {
+          stopListenRef.current = null;
+          setListening(false);
+          setInterimText('');
+          sendText(text);
+        },
+        onError: (err) => {
+          stopListenRef.current = null;
+          setListening(false);
+          setInterimText('');
+          Alert.alert('Could not hear you', err);
+        },
+      });
+      stopListenRef.current = stopFn;
+    } catch (err) {
+      setListening(false);
+      Alert.alert('Could not start mic', String(err));
     }
   };
 
@@ -188,7 +271,7 @@ export function DadiScreen() {
             >
               <Feather name="cloud" size={16} color={colors.text.primary} />
               <Text style={styles.optInText}>
-                Tap to let {personaName} speak more fully — uses cloud, see Privacy.
+                Tap to let {personaName} use the cloud — see Privacy.
               </Text>
             </TouchableOpacity>
           ) : null}
@@ -211,18 +294,44 @@ export function DadiScreen() {
           <TranscriptView turns={turns} />
         </View>
 
+        {listening ? (
+          <View style={styles.listeningBanner}>
+            <View style={styles.listeningDot} />
+            <Text style={styles.listeningText}>
+              {interimText || 'Listening…'}
+            </Text>
+          </View>
+        ) : null}
+
         <View style={styles.composer}>
+          <TouchableOpacity
+            style={[styles.micBtn, listening && styles.micBtnActive]}
+            onPress={onMicPress}
+            disabled={sending}
+            activeOpacity={0.7}
+          >
+            <Feather
+              name={listening ? 'square' : 'mic'}
+              size={18}
+              color={listening ? colors.text.inverse : colors.text.primary}
+            />
+          </TouchableOpacity>
           <TextInput
             style={styles.input}
             value={input}
             onChangeText={setInput}
             placeholder={`Tell ${personaName} what's going on…`}
             placeholderTextColor={colors.text.tertiary}
-            editable={!sending}
+            editable={!sending && !listening}
             onSubmitEditing={onSend}
             returnKeyType="send"
           />
-          <TouchableOpacity style={styles.sendBtn} onPress={onSend} disabled={sending}>
+          <TouchableOpacity
+            style={styles.sendBtn}
+            onPress={onSend}
+            disabled={sending || !input.trim()}
+            activeOpacity={0.7}
+          >
             <Feather name="send" size={18} color={colors.text.inverse} />
           </TouchableOpacity>
         </View>
@@ -250,6 +359,21 @@ const styles = StyleSheet.create({
     color: colors.phase.menstrual,
     paddingBottom: spacing.sm,
   },
+  listeningBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.phaseLight.menstrual,
+  },
+  listeningDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.phase.menstrual,
+  },
+  listeningText: { ...typography.bodySmall, color: colors.text.primary, flex: 1 },
   composer: {
     flexDirection: 'row',
     padding: spacing.md,
@@ -257,6 +381,17 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: colors.divider,
     backgroundColor: colors.surface,
+  },
+  micBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.surfaceAlt,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  micBtnActive: {
+    backgroundColor: colors.phase.menstrual,
   },
   input: {
     flex: 1,

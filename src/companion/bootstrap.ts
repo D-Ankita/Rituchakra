@@ -7,26 +7,47 @@ import {
 } from './cloud/providers/nullProviders';
 import { AnthropicLLMProvider } from './cloud/providers/anthropicLLM';
 import { ExpoSpeechTTSProvider } from './cloud/providers/expoSpeechTTS';
-import { LLMProvider, TTSProvider, STTProvider, AvatarProvider } from './cloud/CloudBoundary.types';
+import { ElevenLabsTTSProvider } from './cloud/providers/elevenLabsTTS';
+import { ExpoSpeechSTTProvider } from './cloud/providers/expoSpeechSTT';
+import {
+  LLMProvider,
+  TTSProvider,
+  STTProvider,
+  AvatarProvider,
+} from './cloud/CloudBoundary.types';
 import { isCloudOptIn, isVoiceEnabled } from './featureFlag';
 
 export interface CompanionRuntime {
   cloudBoundary: CloudBoundary;
+  // Concrete handles for features that don't fit the boundary
+  // surface cleanly (STT runs against the mic, not a stream).
+  stt: ExpoSpeechSTTProvider | null;
+  ttsProvider: TTSProvider;
 }
 
 interface BootstrapOpts {
   anthropicApiKey?: string;
+  elevenLabsApiKey?: string;
+  elevenLabsVoicePresets?: {
+    'en-IN'?: string;
+    'hi-IN'?: string;
+    'mr-IN'?: string;
+    default?: string;
+  };
   isDev?: boolean;
 }
 
 /**
  * Wire up providers and the boundary. Called once at app boot from
- * app/_layout.tsx. The defaults are the Null providers — only when
- * an API key is present AND opt-in is true does the boundary route
- * to a real LLM.
+ * app/_layout.tsx — and once more when voice or cloud opt-in
+ * changes (DadiScreen re-bootstraps in that case).
  *
- * Voice TTS uses expo-speech (on-device, no key) when voiceEnabled
- * is true. STT/Avatar remain null providers until a real impl ships.
+ * Provider selection:
+ *   - LLM: Anthropic if apiKey provided AND cloud opt-in; else Null.
+ *   - TTS: ElevenLabs if apiKey + voice enabled; else expo-speech
+ *          if voice enabled; else Null.
+ *   - STT: expo-speech-recognition if voice enabled; else Null.
+ *   - Avatar: Null (the in-app AvatarView handles its own animation).
  */
 export function bootstrapCompanion(opts: BootstrapOpts = {}): CompanionRuntime {
   const nullLlm = new NullLLMProvider();
@@ -36,10 +57,25 @@ export function bootstrapCompanion(opts: BootstrapOpts = {}): CompanionRuntime {
     activeLlm = new AnthropicLLMProvider({ apiKey: opts.anthropicApiKey });
   }
 
-  const tts: TTSProvider = isVoiceEnabled()
-    ? new ExpoSpeechTTSProvider()
-    : new NullTTSProvider();
-  const stt: STTProvider = new NullSTTProvider();
+  let tts: TTSProvider = new NullTTSProvider();
+  if (isVoiceEnabled()) {
+    if (opts.elevenLabsApiKey) {
+      tts = new ElevenLabsTTSProvider({
+        apiKey: opts.elevenLabsApiKey,
+        voicePresets: opts.elevenLabsVoicePresets,
+      });
+    } else {
+      tts = new ExpoSpeechTTSProvider();
+    }
+  }
+
+  let sttProvider: ExpoSpeechSTTProvider | null = null;
+  let stt: STTProvider = new NullSTTProvider();
+  if (isVoiceEnabled()) {
+    sttProvider = new ExpoSpeechSTTProvider();
+    stt = sttProvider;
+  }
+
   const avatar: AvatarProvider = new NullAvatarProvider();
 
   const cloudBoundary = new CloudBoundary({
@@ -53,5 +89,5 @@ export function bootstrapCompanion(opts: BootstrapOpts = {}): CompanionRuntime {
     isDev: opts.isDev ?? false,
   });
 
-  return { cloudBoundary };
+  return { cloudBoundary, stt: sttProvider, ttsProvider: tts };
 }
