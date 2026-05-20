@@ -43,6 +43,7 @@
     "zustand": "^5.0.11"
   },
   "devDependencies": {
+    "@anthropic-ai/sdk": "^0.40.0",
     "@types/jest": "^29.5.12",
     "@types/react": "~19.1.0",
     "@types/uuid": "^10.0.0",
@@ -52,6 +53,9 @@
     "jest-expo": "~54.0.0",
     "react-test-renderer": "19.1.0",
     "typescript": "~5.9.2"
+  },
+  "peerDependenciesMeta": {
+    "@anthropic-ai/sdk": { "optional": true }
   },
   "jest": {
     "preset": "jest-expo",

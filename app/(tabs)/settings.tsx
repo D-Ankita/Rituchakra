@@ -39,6 +39,11 @@ export default function SettingsScreen() {
   const resetAppStore = useAppStore((s) => s.resetAll);
   const resetCycleStore = useCycleStore((s) => s.reset);
   const resetCompanionStore = useCompanionStore((s) => s.reset);
+  const personaName = useCompanionStore((s) => s.personaName);
+  const cloudOptIn = useCompanionStore((s) => s.cloudOptIn);
+  const setCloudOptIn = useCompanionStore((s) => s.setCloudOptIn);
+  const voiceEnabled = useCompanionStore((s) => s.voiceEnabled);
+  const setVoiceEnabled = useCompanionStore((s) => s.setVoiceEnabled);
   const cycleLength = useCycleStore((s) => s.cycleLength);
 
   const [exporting, setExporting] = useState(false);
@@ -262,6 +267,59 @@ export default function SettingsScreen() {
               }
             />
           </View>
+        </Card>
+
+        {/* Dadi · companion */}
+        <Card>
+          <View style={styles.sectionHeaderRow}>
+            <Feather name="heart" size={16} color={colors.text.secondary} />
+            <Text style={styles.sectionHeader}>{personaName}</Text>
+          </View>
+
+          <View style={styles.settingRow}>
+            <View style={styles.settingInfo}>
+              <Text style={styles.settingLabel}>Cloud features</Text>
+              <Text style={styles.settingDescription}>
+                Let {personaName} use the cloud for fuller replies. Off by default.
+              </Text>
+            </View>
+            <Switch
+              value={cloudOptIn}
+              onValueChange={setCloudOptIn}
+              trackColor={{ false: colors.divider, true: colors.phaseLight.menstrual }}
+              thumbColor={cloudOptIn ? colors.phase.menstrual : colors.text.tertiary}
+            />
+          </View>
+
+          <View style={styles.settingRow}>
+            <View style={styles.settingInfo}>
+              <Text style={styles.settingLabel}>Voice</Text>
+              <Text style={styles.settingDescription}>
+                Hear {personaName} speak (requires cloud features).
+              </Text>
+            </View>
+            <Switch
+              value={voiceEnabled}
+              onValueChange={setVoiceEnabled}
+              disabled={!cloudOptIn}
+              trackColor={{ false: colors.divider, true: colors.phaseLight.menstrual }}
+              thumbColor={voiceEnabled ? colors.phase.menstrual : colors.text.tertiary}
+            />
+          </View>
+
+          <TouchableOpacity
+            style={styles.settingRow}
+            onPress={() => router.push('/dadi-privacy' as any)}
+            activeOpacity={0.7}
+          >
+            <View style={styles.settingInfo}>
+              <Text style={styles.settingLabel}>What leaves my device</Text>
+              <Text style={styles.settingDescription}>
+                A plain-language explanation of cloud features and redaction.
+              </Text>
+            </View>
+            <Feather name="chevron-right" size={20} color={colors.text.tertiary} />
+          </TouchableOpacity>
         </Card>
 
         {/* Real Life / Cultural Intelligence */}

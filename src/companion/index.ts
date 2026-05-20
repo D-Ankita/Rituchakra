@@ -1,0 +1,16 @@
+export { bootstrapCompanion } from './bootstrap';
+export type { CompanionRuntime } from './bootstrap';
+export { CloudBoundary } from './cloud';
+export { buildContextPacket } from './context/ContextBuilder';
+export type { ContextPacket } from './context/ContextPacket';
+export { generateMorningBrief } from './oracle/MorningBriefGenerator';
+export type { GeneratedBrief } from './oracle/MorningBriefGenerator';
+export { ConversationEngine } from './dadi/ConversationEngine';
+export type { ConversationReply } from './dadi/ConversationEngine';
+export { recordMemory, retrieveRelevantMemories, listRecentMemories } from './dadi/Memory';
+export { clearCompanionMemory } from './wipe';
+export { isCloudOptIn, isVoiceEnabled } from './featureFlag';
+export { scheduleMorningBrief, cancelMorningBrief, minutesToHM } from './oracle/scheduler';
+export { findCulturalFlag } from './culture/festivalCalendar';
+export { buildLanguageProfile, describeLanguageForPrompt } from './culture/languageProfile';
+export { findArticlesForPhase, listPublishedArticles } from './culture/contentBridge';
