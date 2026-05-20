@@ -1,7 +1,6 @@
 import { db } from '../database';
 import { cycles, dailyLogs, predictions, phaseInsights } from '../schema';
-import { initializeDatabase } from '../database';
-import { sql } from 'drizzle-orm';
+import { clearCompanionMemory } from '../../companion/wipe';
 
 export async function exportAllData(): Promise<string> {
   const allCycles = db.select().from(cycles).all();
@@ -22,6 +21,7 @@ export async function exportAllData(): Promise<string> {
 }
 
 export async function deleteAllData() {
+  await clearCompanionMemory();
   db.delete(dailyLogs).run();
   db.delete(predictions).run();
   db.delete(phaseInsights).run();

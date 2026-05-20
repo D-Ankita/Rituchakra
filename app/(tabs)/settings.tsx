@@ -20,7 +20,9 @@ import { typography } from '../../src/theme/typography';
 import { spacing, borderRadius } from '../../src/theme/spacing';
 import { useAppStore } from '../../src/stores/useAppStore';
 import { useCycleStore } from '../../src/stores/useCycleStore';
+import { useCompanionStore } from '../../src/stores/useCompanionStore';
 import { exportAllData, deleteAllData } from '../../src/db/helpers/exportHelpers';
+import { clearCompanionMemory } from '../../src/companion/wipe';
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -36,6 +38,7 @@ export default function SettingsScreen() {
   const setManualPeriodLength = useAppStore((s) => s.setManualPeriodLength);
   const resetAppStore = useAppStore((s) => s.resetAll);
   const resetCycleStore = useCycleStore((s) => s.reset);
+  const resetCompanionStore = useCompanionStore((s) => s.reset);
   const cycleLength = useCycleStore((s) => s.cycleLength);
 
   const [exporting, setExporting] = useState(false);
@@ -74,6 +77,24 @@ export default function SettingsScreen() {
             await deleteAllData();
             resetAppStore();
             resetCycleStore();
+            resetCompanionStore();
+          },
+        },
+      ]
+    );
+  };
+
+  const handleClearCompanionMemory = () => {
+    Alert.alert(
+      "Clear Dadi's Memory",
+      "This will erase your conversation history with Dadi. Your cycle data, logs, and settings will stay. This cannot be undone.",
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: "Clear Memory",
+          style: 'destructive',
+          onPress: async () => {
+            await clearCompanionMemory();
           },
         },
       ]
@@ -286,6 +307,17 @@ export default function SettingsScreen() {
               <Text style={styles.exportButtonText}>
                 {exporting ? 'Exporting...' : 'Export Data (JSON)'}
               </Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.exportButton}
+            onPress={handleClearCompanionMemory}
+            activeOpacity={0.7}
+          >
+            <View style={styles.buttonContentRow}>
+              <Feather name="message-circle" size={16} color={colors.phase.menstrual} />
+              <Text style={styles.exportButtonText}>Clear Dadi's Memory</Text>
             </View>
           </TouchableOpacity>
 

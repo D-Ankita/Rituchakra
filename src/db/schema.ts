@@ -48,3 +48,16 @@ export const phaseInsights = sqliteTable('phase_insights', {
   cycleCount: integer('cycle_count').notNull(),
   updatedAt: integer('updated_at').notNull(),
 });
+
+export const companionMemory = sqliteTable('companion_memory', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  createdAt: integer('created_at').notNull(),
+  cycleId: integer('cycle_id').references(() => cycles.id),
+  cycleDay: integer('cycle_day'),
+  phase: text('phase'),
+  summary: text('summary').notNull(),
+  salientTopics: text('salient_topics').notNull().default('[]'), // JSON array
+  sentiment: text('sentiment'), // 'positive'|'neutral'|'low'|'distressed'
+  source: text('source').notNull().default('conversation'), // 'conversation'|'morning_brief'|'screening'
+  redacted: integer('redacted', { mode: 'boolean' }).notNull().default(true),
+});

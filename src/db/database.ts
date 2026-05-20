@@ -57,8 +57,23 @@ export function initializeDatabase() {
       updated_at INTEGER NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS companion_memory (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      created_at INTEGER NOT NULL,
+      cycle_id INTEGER REFERENCES cycles(id),
+      cycle_day INTEGER,
+      phase TEXT,
+      summary TEXT NOT NULL,
+      salient_topics TEXT NOT NULL DEFAULT '[]',
+      sentiment TEXT,
+      source TEXT NOT NULL DEFAULT 'conversation',
+      redacted INTEGER NOT NULL DEFAULT 1
+    );
+
     CREATE INDEX IF NOT EXISTS idx_daily_logs_date ON daily_logs(date);
     CREATE INDEX IF NOT EXISTS idx_daily_logs_cycle_id ON daily_logs(cycle_id);
     CREATE INDEX IF NOT EXISTS idx_predictions_cycle_id ON predictions(cycle_id);
+    CREATE INDEX IF NOT EXISTS idx_companion_memory_created_at ON companion_memory(created_at);
+    CREATE INDEX IF NOT EXISTS idx_companion_memory_cycle_id ON companion_memory(cycle_id);
   `);
 }
