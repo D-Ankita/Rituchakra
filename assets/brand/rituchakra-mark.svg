@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <title>RituChakra mark — 3-petal lotus</title>
+  <g transform="translate(512, 752)" fill="#D49DAB">
+    <path id="petal" d="M 0,0 A 400 400 0 0 1 0,-480 A 400 400 0 0 1 0,0 Z"/>
+    <use href="#petal" transform="rotate(-62)"/>
+    <use href="#petal" transform="rotate(62)"/>
+  </g>
+</svg>
