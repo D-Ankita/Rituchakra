@@ -8,11 +8,6 @@
     "scheme": "rituchakra",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
-    "splash": {
-      "image": "./assets/images/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#FFF8F5"
-    },
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.rituchakra.app",
@@ -40,6 +35,15 @@
       "expo-router",
       "expo-sqlite",
       "expo-secure-store",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 240,
+          "resizeMode": "contain",
+          "backgroundColor": "#FFF8F5"
+        }
+      ],
       [
         "expo-notifications",
         {

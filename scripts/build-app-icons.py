@@ -6,7 +6,7 @@ Usage: python3 scripts/build-app-icons.py
 Outputs (overwrites):
   assets/images/icon.png            1024x1024  cream bg, full mark      (iOS / general)
   assets/images/adaptive-icon.png   1024x1024  transparent, 0.74x mark  (Android adaptive fg)
-  assets/images/splash-icon.png     1024x1024  transparent, 0.55x mark  (Expo splash)
+  assets/images/splash-icon.png     1024x1024  transparent, full mark   (Expo splash; size via app.json imageWidth)
   assets/images/favicon.png         48x48      cream bg, full mark      (web)
 """
 from __future__ import annotations
@@ -61,7 +61,7 @@ def main() -> None:
     print("Rendering RituChakra app icons:")
     _render(_svg(1.0, CREAM), "icon.png", 1024)
     _render(_svg(0.74, None), "adaptive-icon.png", 1024)
-    _render(_svg(0.55, None), "splash-icon.png", 1024)
+    _render(_svg(1.0, None), "splash-icon.png", 1024)
     _render(_svg(1.0, CREAM), "favicon.png", 48)
     print("Done.")
 
