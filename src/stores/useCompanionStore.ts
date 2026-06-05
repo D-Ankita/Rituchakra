@@ -13,6 +13,11 @@ interface CompanionState {
   cloudOptIn: boolean;
   lastBriefAt: number | null;
   lastScreeningCycleId: number | null;
+  llmChoice: 'auto' | 'anthropic' | 'openai' | 'none';
+  hasSeenIntro: boolean;
+  anthropicConnected: boolean;
+  openAIConnected: boolean;
+  elevenLabsConnected: boolean;
 
   setPersonaName: (name: string) => void;
   setLanguage: (lang: CompanionLanguage) => void;
@@ -22,6 +27,11 @@ interface CompanionState {
   setCloudOptIn: (enabled: boolean) => void;
   setLastBriefAt: (ts: number) => void;
   setLastScreeningCycleId: (id: number | null) => void;
+  setLlmChoice: (choice: 'auto' | 'anthropic' | 'openai' | 'none') => void;
+  setHasSeenIntro: (v: boolean) => void;
+  setAnthropicConnected: (v: boolean) => void;
+  setOpenAIConnected: (v: boolean) => void;
+  setElevenLabsConnected: (v: boolean) => void;
   reset: () => void;
 }
 
@@ -34,6 +44,11 @@ const DEFAULTS = {
   cloudOptIn: false,
   lastBriefAt: null,
   lastScreeningCycleId: null,
+  llmChoice: 'auto' as const,
+  hasSeenIntro: false,
+  anthropicConnected: false,
+  openAIConnected: false,
+  elevenLabsConnected: false,
 };
 
 export const useCompanionStore = create<CompanionState>()(
@@ -49,6 +64,11 @@ export const useCompanionStore = create<CompanionState>()(
       setCloudOptIn: (enabled) => set({ cloudOptIn: enabled }),
       setLastBriefAt: (ts) => set({ lastBriefAt: ts }),
       setLastScreeningCycleId: (id) => set({ lastScreeningCycleId: id }),
+      setLlmChoice: (choice) => set({ llmChoice: choice }),
+      setHasSeenIntro: (v) => set({ hasSeenIntro: v }),
+      setAnthropicConnected: (v) => set({ anthropicConnected: v }),
+      setOpenAIConnected: (v) => set({ openAIConnected: v }),
+      setElevenLabsConnected: (v) => set({ elevenLabsConnected: v }),
       reset: () => set(DEFAULTS),
     }),
     {

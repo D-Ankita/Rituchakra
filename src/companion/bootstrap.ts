@@ -6,6 +6,7 @@ import {
   NullAvatarProvider,
 } from './cloud/providers/nullProviders';
 import { AnthropicLLMProvider } from './cloud/providers/anthropicLLM';
+import { OpenAILLMProvider } from './cloud/providers/openAILLM';
 import { ExpoSpeechTTSProvider } from './cloud/providers/expoSpeechTTS';
 import { ElevenLabsTTSProvider } from './cloud/providers/elevenLabsTTS';
 import { ExpoSpeechSTTProvider } from './cloud/providers/expoSpeechSTT';
@@ -17,44 +18,58 @@ import {
 } from './cloud/CloudBoundary.types';
 import { isCloudOptIn, isVoiceEnabled } from './featureFlag';
 
+export type LLMChoice = 'auto' | 'anthropic' | 'openai' | 'none';
+
 export interface CompanionRuntime {
   cloudBoundary: CloudBoundary;
-  // Concrete handles for features that don't fit the boundary
-  // surface cleanly (STT runs against the mic, not a stream).
   stt: ExpoSpeechSTTProvider | null;
   ttsProvider: TTSProvider;
+  llmName: string;
 }
 
 interface BootstrapOpts {
-  anthropicApiKey?: string;
-  elevenLabsApiKey?: string;
+  anthropicApiKey?: string | null;
+  openAIApiKey?: string | null;
+  elevenLabsApiKey?: string | null;
   elevenLabsVoicePresets?: {
     'en-IN'?: string;
     'hi-IN'?: string;
     'mr-IN'?: string;
     default?: string;
   };
+  llmChoice?: LLMChoice;
   isDev?: boolean;
 }
 
 /**
- * Wire up providers and the boundary. Called once at app boot from
- * app/_layout.tsx — and once more when voice or cloud opt-in
- * changes (DadiScreen re-bootstraps in that case).
+ * Wire up providers and the boundary.
  *
- * Provider selection:
- *   - LLM: Anthropic if apiKey provided AND cloud opt-in; else Null.
- *   - TTS: ElevenLabs if apiKey + voice enabled; else expo-speech
- *          if voice enabled; else Null.
+ * Provider selection priority:
+ *   - LLM: explicit llmChoice wins; otherwise Anthropic if its key
+ *     is present, else OpenAI, else Null.
+ *   - TTS: ElevenLabs if its key is present AND voice enabled;
+ *     else expo-speech if voice enabled; else Null.
  *   - STT: expo-speech-recognition if voice enabled; else Null.
- *   - Avatar: Null (the in-app AvatarView handles its own animation).
+ *   - Avatar: Null (in-app AvatarView handles its own animation).
  */
 export function bootstrapCompanion(opts: BootstrapOpts = {}): CompanionRuntime {
   const nullLlm = new NullLLMProvider();
 
+  const choice = opts.llmChoice ?? 'auto';
   let activeLlm: LLMProvider = nullLlm;
-  if (opts.anthropicApiKey) {
-    activeLlm = new AnthropicLLMProvider({ apiKey: opts.anthropicApiKey });
+  let llmName = nullLlm.name;
+  if (choice !== 'none') {
+    const useAnthropic =
+      (choice === 'anthropic' || choice === 'auto') && !!opts.anthropicApiKey;
+    const useOpenAI =
+      (choice === 'openai' || (choice === 'auto' && !useAnthropic)) && !!opts.openAIApiKey;
+    if (useAnthropic) {
+      activeLlm = new AnthropicLLMProvider({ apiKey: opts.anthropicApiKey! });
+      llmName = activeLlm.name;
+    } else if (useOpenAI) {
+      activeLlm = new OpenAILLMProvider({ apiKey: opts.openAIApiKey! });
+      llmName = activeLlm.name;
+    }
   }
 
   let tts: TTSProvider = new NullTTSProvider();
@@ -89,5 +104,5 @@ export function bootstrapCompanion(opts: BootstrapOpts = {}): CompanionRuntime {
     isDev: opts.isDev ?? false,
   });
 
-  return { cloudBoundary, stt: sttProvider, ttsProvider: tts };
+  return { cloudBoundary, stt: sttProvider, ttsProvider: tts, llmName };
 }

@@ -24,6 +24,8 @@ import { useCycleStore } from '../../src/stores/useCycleStore';
 import { useCompanionStore } from '../../src/stores/useCompanionStore';
 import { exportAllData, deleteAllData } from '../../src/db/helpers/exportHelpers';
 import { clearCompanionMemory } from '../../src/companion/wipe';
+import { ConnectProviderModal, ProviderKind } from '../../src/companion/ui/ConnectProviderModal';
+import { clearAllKeys } from '../../src/companion/cloud/keyStore';
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -50,9 +52,15 @@ export default function SettingsScreen() {
   const setCloudOptIn = useCompanionStore((s) => s.setCloudOptIn);
   const voiceEnabled = useCompanionStore((s) => s.voiceEnabled);
   const setVoiceEnabled = useCompanionStore((s) => s.setVoiceEnabled);
+  const llmChoice = useCompanionStore((s) => s.llmChoice);
+  const setLlmChoice = useCompanionStore((s) => s.setLlmChoice);
+  const anthropicConnected = useCompanionStore((s) => s.anthropicConnected);
+  const openAIConnected = useCompanionStore((s) => s.openAIConnected);
+  const elevenLabsConnected = useCompanionStore((s) => s.elevenLabsConnected);
   const cycleLength = useCycleStore((s) => s.cycleLength);
 
   const [exporting, setExporting] = useState(false);
+  const [modalProvider, setModalProvider] = useState<ProviderKind | null>(null);
 
   const handleExport = async () => {
     setExporting(true);
@@ -86,6 +94,7 @@ export default function SettingsScreen() {
           style: 'destructive',
           onPress: async () => {
             await deleteAllData();
+            await clearAllKeys();
             resetAppStore();
             resetCycleStore();
             resetCompanionStore();
@@ -337,24 +346,9 @@ export default function SettingsScreen() {
 
           <View style={styles.settingRow}>
             <View style={styles.settingInfo}>
-              <Text style={styles.settingLabel}>Cloud features</Text>
-              <Text style={styles.settingDescription}>
-                Let {personaName} use the cloud for fuller replies. Off by default.
-              </Text>
-            </View>
-            <Switch
-              value={cloudOptIn}
-              onValueChange={setCloudOptIn}
-              trackColor={{ false: colors.divider, true: colors.phaseLight.menstrual }}
-              thumbColor={cloudOptIn ? colors.phase.menstrual : colors.text.tertiary}
-            />
-          </View>
-
-          <View style={styles.settingRow}>
-            <View style={styles.settingInfo}>
               <Text style={styles.settingLabel}>Voice</Text>
               <Text style={styles.settingDescription}>
-                Hear {personaName} speak (uses on-device synthesis — no cloud).
+                Hear {personaName} speak (on-device synthesis works offline).
               </Text>
             </View>
             <Switch
@@ -378,6 +372,72 @@ export default function SettingsScreen() {
             </View>
             <Feather name="chevron-right" size={20} color={colors.text.tertiary} />
           </TouchableOpacity>
+        </Card>
+
+        {/* Connections */}
+        <Card>
+          <View style={styles.sectionHeaderRow}>
+            <Feather name="link" size={16} color={colors.text.secondary} />
+            <Text style={styles.sectionHeader}>Connections</Text>
+          </View>
+          <Text style={styles.privacyNote}>
+            Connect an LLM to give {personaName} a real brain. Keys are stored in your phone's
+            keychain — never shared.
+          </Text>
+
+          <View style={styles.settingRow}>
+            <View style={styles.settingInfo}>
+              <Text style={styles.settingLabel}>Cloud opt-in</Text>
+              <Text style={styles.settingDescription}>
+                Required for any LLM. Off by default.
+              </Text>
+            </View>
+            <Switch
+              value={cloudOptIn}
+              onValueChange={setCloudOptIn}
+              trackColor={{ false: colors.divider, true: colors.phaseLight.menstrual }}
+              thumbColor={cloudOptIn ? colors.phase.menstrual : colors.text.tertiary}
+            />
+          </View>
+
+          <ProviderRow
+            title="Claude (Anthropic)"
+            subtitle="Best for health conversations"
+            connected={anthropicConnected}
+            onPress={() => setModalProvider('anthropic')}
+          />
+          <ProviderRow
+            title="ChatGPT (OpenAI)"
+            subtitle="GPT-4o or any model on your account"
+            connected={openAIConnected}
+            onPress={() => setModalProvider('openai')}
+          />
+          <ProviderRow
+            title="ElevenLabs voice"
+            subtitle="Optional — upgrades the on-device voice"
+            connected={elevenLabsConnected}
+            onPress={() => setModalProvider('elevenlabs')}
+          />
+
+          {anthropicConnected && openAIConnected ? (
+            <View style={styles.settingColumn}>
+              <Text style={styles.settingLabel}>Use which brain?</Text>
+              <View style={styles.pillRow}>
+                {(['auto', 'anthropic', 'openai'] as const).map((opt) => (
+                  <TouchableOpacity
+                    key={opt}
+                    style={[styles.pill, llmChoice === opt && styles.pillActive]}
+                    onPress={() => setLlmChoice(opt)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.pillText, llmChoice === opt && styles.pillTextActive]}>
+                      {opt === 'auto' ? 'Auto' : opt === 'anthropic' ? 'Claude' : 'ChatGPT'}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          ) : null}
         </Card>
 
         {/* Real Life / Cultural Intelligence */}
@@ -467,9 +527,74 @@ export default function SettingsScreen() {
           </View>
         </Card>
       </ScrollView>
+
+      {modalProvider ? (
+        <ConnectProviderModal
+          visible={modalProvider !== null}
+          provider={modalProvider}
+          onClose={() => setModalProvider(null)}
+        />
+      ) : null}
     </SafeAreaView>
   );
 }
+
+function ProviderRow({
+  title,
+  subtitle,
+  connected,
+  onPress,
+}: {
+  title: string;
+  subtitle: string;
+  connected: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity style={providerRowStyles.row} onPress={onPress} activeOpacity={0.7}>
+      <View style={providerRowStyles.info}>
+        <Text style={providerRowStyles.title}>{title}</Text>
+        <Text style={providerRowStyles.subtitle}>{subtitle}</Text>
+      </View>
+      {connected ? (
+        <View style={providerRowStyles.connected}>
+          <Feather name="check-circle" size={14} color="#1f6b3a" />
+          <Text style={providerRowStyles.connectedText}>Connected</Text>
+        </View>
+      ) : (
+        <View style={providerRowStyles.notConnected}>
+          <Text style={providerRowStyles.notConnectedText}>Connect</Text>
+          <Feather name="chevron-right" size={16} color={colors.phase.menstrual} />
+        </View>
+      )}
+    </TouchableOpacity>
+  );
+}
+
+const providerRowStyles = StyleSheet.create({
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.divider,
+  },
+  info: { flex: 1, gap: 2 },
+  title: { ...typography.body, color: colors.text.primary, fontWeight: '500' },
+  subtitle: { ...typography.bodySmall, color: colors.text.tertiary },
+  connected: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#e5f3e4',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: borderRadius.full,
+  },
+  connectedText: { ...typography.caption, color: '#1f6b3a', fontWeight: '600' },
+  notConnected: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  notConnectedText: { ...typography.bodySmall, color: colors.phase.menstrual, fontWeight: '500' },
+});
 
 function languageLabel(l: string): string {
   switch (l) {

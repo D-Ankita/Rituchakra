@@ -1,4 +1,3 @@
-import { createAudioPlayer } from 'expo-audio';
 import { File, Paths } from 'expo-file-system';
 import { TTSProvider, AudioStream, VoiceId } from '../CloudBoundary.types';
 
@@ -78,6 +77,10 @@ export class ElevenLabsTTSProvider implements TTSProvider {
     file.create({ overwrite: true });
     file.write(bytes);
 
+    // Lazy-load expo-audio: keeps the native module out of test
+    // environments and out of bundles where TTS is never used.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { createAudioPlayer } = require('expo-audio');
     const player = createAudioPlayer({ uri: file.uri });
     const durationMs = await new Promise<number>((resolve) => {
       let resolved = false;
@@ -86,7 +89,7 @@ export class ElevenLabsTTSProvider implements TTSProvider {
         resolved = true;
         resolve(ms);
       };
-      const sub = player.addListener('playbackStatusUpdate', (s) => {
+      const sub = player.addListener('playbackStatusUpdate', (s: any) => {
         if (s.didJustFinish || (s.duration && s.currentTime >= s.duration - 0.05)) {
           sub.remove();
           finish((s.duration ?? 0) * 1000);
