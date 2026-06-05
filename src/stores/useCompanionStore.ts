@@ -18,6 +18,7 @@ interface CompanionState {
   anthropicConnected: boolean;
   openAIConnected: boolean;
   elevenLabsConnected: boolean;
+  dailyLLMCap: number;
 
   setPersonaName: (name: string) => void;
   setLanguage: (lang: CompanionLanguage) => void;
@@ -32,6 +33,7 @@ interface CompanionState {
   setAnthropicConnected: (v: boolean) => void;
   setOpenAIConnected: (v: boolean) => void;
   setElevenLabsConnected: (v: boolean) => void;
+  setDailyLLMCap: (n: number) => void;
   reset: () => void;
 }
 
@@ -49,6 +51,7 @@ const DEFAULTS = {
   anthropicConnected: false,
   openAIConnected: false,
   elevenLabsConnected: false,
+  dailyLLMCap: 50,
 };
 
 export const useCompanionStore = create<CompanionState>()(
@@ -69,6 +72,7 @@ export const useCompanionStore = create<CompanionState>()(
       setAnthropicConnected: (v) => set({ anthropicConnected: v }),
       setOpenAIConnected: (v) => set({ openAIConnected: v }),
       setElevenLabsConnected: (v) => set({ elevenLabsConnected: v }),
+      setDailyLLMCap: (n) => set({ dailyLLMCap: n }),
       reset: () => set(DEFAULTS),
     }),
     {

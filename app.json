@@ -63,7 +63,8 @@
       "elevenLabsApiKey": null,
       "elevenLabsVoiceEn": null,
       "elevenLabsVoiceHi": null,
-      "elevenLabsVoiceMr": null
+      "elevenLabsVoiceMr": null,
+      "sentryDsn": null
     }
   }
 }

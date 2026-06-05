@@ -11,6 +11,12 @@ import {
 } from './CloudBoundary.types';
 import { redactRequest, assertNoIdentifiers } from './redactor';
 import { truncateToBudget } from '../context/tokenBudget';
+import {
+  isOverCap,
+  incrementCount,
+  UsageLimits,
+  DEFAULT_LIMITS,
+} from './usageMeter';
 
 interface BoundaryDeps {
   llm: LLMProvider;
@@ -20,6 +26,7 @@ interface BoundaryDeps {
   avatar: AvatarProvider;
   optIn: () => boolean;           // cloud LLM opt-in
   voiceEnabled?: () => boolean;   // separate gate for on-device TTS/STT
+  usageLimits?: UsageLimits;
   isDev: boolean;
 }
 
@@ -47,6 +54,15 @@ export class CloudBoundary {
       return this.deps.fallbackLlm.generate(req);
     }
 
+    const limits = this.deps.usageLimits ?? DEFAULT_LIMITS;
+    if (await isOverCap(this.deps.llm.name, limits)) {
+      const fallback = await this.deps.fallbackLlm.generate(req);
+      return {
+        ...fallback,
+        safetyFlags: [...fallback.safetyFlags, 'daily_limit_reached'],
+      };
+    }
+
     const { request } = redactRequest(req);
     const trimmedPacket = truncateToBudget(request.packet);
     const safeReq: LLMRequest = { ...request, packet: trimmedPacket };
@@ -54,7 +70,9 @@ export class CloudBoundary {
     if (this.deps.isDev) assertNoIdentifiers(safeReq);
 
     try {
-      return await this.deps.llm.generate(safeReq);
+      const res = await this.deps.llm.generate(safeReq);
+      await incrementCount(this.deps.llm.name);
+      return res;
     } catch (err) {
       return this.deps.fallbackLlm.generate(safeReq);
     }

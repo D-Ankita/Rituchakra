@@ -26,7 +26,8 @@ export type SafetyFlag =
   | 'out_of_scope'
   | 'injection_blocked'
   | 'diagnosis_stripped'
-  | 'prescription_stripped';
+  | 'prescription_stripped'
+  | 'daily_limit_reached';
 
 export interface LLMProvider {
   readonly name: string;

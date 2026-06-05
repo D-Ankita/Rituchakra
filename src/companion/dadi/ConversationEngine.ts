@@ -18,6 +18,7 @@ export interface ConversationReply {
   providerUsed: string;
   citations: string[];
   blocked: boolean;
+  memoriesUsed: number;
 }
 
 export class ConversationEngine {
@@ -45,6 +46,7 @@ export class ConversationEngine {
         providerUsed: 'safety-router',
         citations: [],
         blocked: true,
+        memoriesUsed: 0,
       };
     }
 
@@ -85,6 +87,7 @@ export class ConversationEngine {
       providerUsed: llmResponse.providerUsed,
       citations: llmResponse.citations,
       blocked: false,
+      memoriesUsed: packet.memorySnippets.length,
     };
   }
 }

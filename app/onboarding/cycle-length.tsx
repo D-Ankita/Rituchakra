@@ -12,9 +12,7 @@ import { Button } from '../../src/components/common/Button';
 import { colors } from '../../src/theme/colors';
 import { typography } from '../../src/theme/typography';
 import { spacing, borderRadius } from '../../src/theme/spacing';
-import { useAppStore } from '../../src/stores/useAppStore';
 import { useCycleStore } from '../../src/stores/useCycleStore';
-import { startNewCycle } from '../../src/db/helpers/cycleHelpers';
 import {
   CYCLE_LENGTHS,
   DEFAULT_CYCLE_LENGTH,
@@ -22,10 +20,7 @@ import {
 
 export default function CycleLengthScreen() {
   const router = useRouter();
-  const completeOnboarding = useAppStore((s) => s.completeOnboarding);
-  const lastPeriodStart = useCycleStore((s) => s.lastPeriodStart);
   const setCycleLength = useCycleStore((s) => s.setCycleLength);
-  const setCurrentCycle = useCycleStore((s) => s.setCurrentCycle);
 
   const [selected, setSelected] = useState(DEFAULT_CYCLE_LENGTH);
   const [loading, setLoading] = useState(false);
@@ -34,17 +29,7 @@ export default function CycleLengthScreen() {
     setLoading(true);
     try {
       setCycleLength(selected);
-
-      const startDate = lastPeriodStart ?? new Date();
-      const cycle = await startNewCycle(startDate);
-
-      const { getCycleDay, calculatePhase } = require('../../src/engine/phaseCalculator');
-      const day = getCycleDay(startDate);
-      const { phase } = calculatePhase(day, selected);
-      setCurrentCycle(cycle.id, day, phase);
-
-      completeOnboarding();
-      router.replace('/(tabs)');
+      router.push('/onboarding/meet-dadi' as any);
     } finally {
       setLoading(false);
     }

@@ -11,6 +11,9 @@ import { getCurrentCycle, getCycleCount } from '../src/db/helpers/cycleHelpers';
 import { getCycleDay, calculatePhase } from '../src/engine/phaseCalculator';
 import { scheduleMorningBrief, minutesToHM } from '../src/companion/oracle/scheduler';
 import { requestNotificationPermissions } from '../src/utils/notifications';
+import { initSentry } from '../src/observability/sentry';
+
+initSentry();
 
 export { ErrorBoundary } from 'expo-router';
 

@@ -26,6 +26,9 @@ import { exportAllData, deleteAllData } from '../../src/db/helpers/exportHelpers
 import { clearCompanionMemory } from '../../src/companion/wipe';
 import { ConnectProviderModal, ProviderKind } from '../../src/companion/ui/ConnectProviderModal';
 import { clearAllKeys } from '../../src/companion/cloud/keyStore';
+import { loadUsage, UsageDay } from '../../src/companion/cloud/usageMeter';
+import { useFocusEffect } from 'expo-router';
+import { useCallback } from 'react';
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -57,10 +60,25 @@ export default function SettingsScreen() {
   const anthropicConnected = useCompanionStore((s) => s.anthropicConnected);
   const openAIConnected = useCompanionStore((s) => s.openAIConnected);
   const elevenLabsConnected = useCompanionStore((s) => s.elevenLabsConnected);
+  const dailyLLMCap = useCompanionStore((s) => s.dailyLLMCap);
+  const setDailyLLMCap = useCompanionStore((s) => s.setDailyLLMCap);
   const cycleLength = useCycleStore((s) => s.cycleLength);
 
   const [exporting, setExporting] = useState(false);
   const [modalProvider, setModalProvider] = useState<ProviderKind | null>(null);
+  const [usage, setUsage] = useState<UsageDay | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      loadUsage().then((u) => {
+        if (!cancelled) setUsage(u);
+      });
+      return () => {
+        cancelled = true;
+      };
+    }, [])
+  );
 
   const handleExport = async () => {
     setExporting(true);
@@ -438,6 +456,43 @@ export default function SettingsScreen() {
               </View>
             </View>
           ) : null}
+
+          {(anthropicConnected || openAIConnected) ? (
+            <View style={styles.settingColumn}>
+              <Text style={styles.settingLabel}>Daily cap (per brain)</Text>
+              <Text style={styles.settingDescription}>
+                Protects your API key from a runaway loop. When hit, {personaName} falls back to
+                the local brief.
+              </Text>
+              <View style={styles.pillRow}>
+                {[10, 25, 50, 100, 200].map((n) => (
+                  <TouchableOpacity
+                    key={n}
+                    style={[styles.pill, dailyLLMCap === n && styles.pillActive]}
+                    onPress={() => setDailyLLMCap(n)}
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      style={[styles.pillText, dailyLLMCap === n && styles.pillTextActive]}
+                    >
+                      {n}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              {usage && Object.keys(usage.counts).length > 0 ? (
+                <View style={styles.usageRow}>
+                  {Object.entries(usage.counts).map(([provider, count]) => (
+                    <Text key={provider} style={styles.usageText}>
+                      {providerLabel(provider)}: {count} / {dailyLLMCap}
+                    </Text>
+                  ))}
+                </View>
+              ) : (
+                <Text style={styles.usageText}>0 calls today.</Text>
+              )}
+            </View>
+          ) : null}
         </Card>
 
         {/* Real Life / Cultural Intelligence */}
@@ -596,6 +651,12 @@ const providerRowStyles = StyleSheet.create({
   notConnectedText: { ...typography.bodySmall, color: colors.phase.menstrual, fontWeight: '500' },
 });
 
+function providerLabel(name: string): string {
+  if (name === 'anthropic-claude') return 'Claude';
+  if (name === 'openai-gpt') return 'ChatGPT';
+  return name;
+}
+
 function languageLabel(l: string): string {
   switch (l) {
     case 'en': return 'English';
@@ -684,6 +745,8 @@ const styles = StyleSheet.create({
     color: colors.text.inverse,
     fontWeight: '600',
   },
+  usageRow: { gap: 4, marginTop: 4 },
+  usageText: { ...typography.caption, color: colors.text.tertiary },
   nameInput: {
     ...typography.body,
     color: colors.text.primary,

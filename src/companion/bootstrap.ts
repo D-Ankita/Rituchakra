@@ -38,6 +38,7 @@ interface BootstrapOpts {
     default?: string;
   };
   llmChoice?: LLMChoice;
+  dailyLLMCap?: number;
   isDev?: boolean;
 }
 
@@ -101,6 +102,7 @@ export function bootstrapCompanion(opts: BootstrapOpts = {}): CompanionRuntime {
     avatar,
     optIn: isCloudOptIn,
     voiceEnabled: isVoiceEnabled,
+    usageLimits: opts.dailyLLMCap ? { perProviderPerDay: opts.dailyLLMCap } : undefined,
     isDev: opts.isDev ?? false,
   });
 

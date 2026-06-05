@@ -44,6 +44,7 @@ export function DadiScreen() {
   const cloudOptIn = useCompanionStore((s) => s.cloudOptIn);
   const voiceEnabled = useCompanionStore((s) => s.voiceEnabled);
   const llmChoice = useCompanionStore((s) => s.llmChoice);
+  const dailyLLMCap = useCompanionStore((s) => s.dailyLLMCap);
   const hasSeenIntro = useCompanionStore((s) => s.hasSeenIntro);
   const setHasSeenIntro = useCompanionStore((s) => s.setHasSeenIntro);
   const anthropicConnected = useCompanionStore((s) => s.anthropicConnected);
@@ -99,6 +100,7 @@ export function DadiScreen() {
           'mr-IN': elVoiceMr ?? undefined,
         },
         llmChoice,
+        dailyLLMCap,
         isDev: __DEV__,
       });
       setRuntime(rt);
@@ -114,6 +116,7 @@ export function DadiScreen() {
     openAIConnected,
     elevenLabsConnected,
     llmChoice,
+    dailyLLMCap,
   ]);
 
   const speakWithPulse = useCallback(
@@ -246,7 +249,15 @@ export function DadiScreen() {
     setTurns((prev) => [...prev, { role: 'user', text }]);
     try {
       const reply = await engineRef.current.send(text);
-      setTurns((prev) => [...prev, { role: 'assistant', text: reply.text }]);
+      setTurns((prev) => [
+        ...prev,
+        {
+          role: 'assistant',
+          text: reply.text,
+          memoriesUsed: reply.memoriesUsed,
+          isFallback: reply.isFallback,
+        },
+      ]);
       speakWithPulse(reply.text);
     } catch {
       setTurns((prev) => [
